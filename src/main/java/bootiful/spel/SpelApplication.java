@@ -78,8 +78,7 @@ public class SpelApplication {
 					var bd = beanFactory.getBeanDefinition(bean);
 					var clzzName = bd.getBeanClassName();
 					if (StringUtils.hasText(clzzName)) {
-						hints.reflection().registerType(TypeReference.of(clzzName),
-								MemberCategory.values());
+						hints.reflection().registerType(TypeReference.of(clzzName), MemberCategory.values());
 					}
 				}
 			};
