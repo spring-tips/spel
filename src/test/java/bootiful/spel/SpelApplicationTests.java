@@ -2,6 +2,7 @@ package bootiful.spel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,7 +19,7 @@ import java.util.*;
 
 class SpelApplicationTests {
 
-    private static record Inventor(String name, Date birthday, String nationality, String[] inventionsArray) {
+    private record Inventor(String name, Date birthday, String nationality, String[] inventionsArray) {
     }
 
     private final static Inventor TESLA = new Inventor("Nikola Tesla",
@@ -259,5 +260,24 @@ class SpelApplicationTests {
         System.out.println(collectionOfInventors);
     }
 
+    @Configuration
+    static class SpelConfiguration {
+
+        private final Collection<Inventor> inventions;
+
+        SpelConfiguration(@Value("#{ @registry.inventors }") Collection<Inventor> inventions) {
+            System.out.println("the inventions are [" + inventions + "]");
+            this.inventions = inventions;
+        }
+    }
+
+    @Test
+    void spring() throws Exception {
+        var applicationContext = new AnnotationConfigApplicationContext(SimpleConfig.class,
+                SpelConfiguration.class);
+        applicationContext.start();
+        Assertions.assertEquals(applicationContext.getBean(SpelConfiguration.class).inventions,
+                applicationContext.getBean(InventorRegistry.class).getInventors());
+    }
 
 }
