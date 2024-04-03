@@ -2,6 +2,7 @@ package bootiful.spel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.util.ReflectionUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -10,6 +11,7 @@ import org.springframework.context.expression.BeanFactoryResolver;
 import org.springframework.expression.spel.SpelCompilerMode;
 import org.springframework.expression.spel.SpelEvaluationException;
 import org.springframework.expression.spel.SpelParserConfiguration;
+import org.springframework.expression.spel.standard.SpelExpression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
@@ -19,7 +21,7 @@ import java.util.*;
 
 class SpelApplicationTests {
 
-    private record Inventor(String name, Date birthday, String nationality, String[] inventionsArray) {
+    public record Inventor(String name, Date birthday, String nationality, String[] inventionsArray) {
     }
 
     private final static Inventor TESLA = new Inventor("Nikola Tesla",
@@ -33,6 +35,8 @@ class SpelApplicationTests {
         var message = expression.getValue();
         if (message instanceof byte[] bytes)
             Assertions.assertEquals(new String(bytes), "hello, world!");
+        else
+            Assertions.fail();
     }
 
     @Test
@@ -183,11 +187,16 @@ class SpelApplicationTests {
     }
 
     @Test
-    void compilationMode() {
-        var config = new SpelParserConfiguration(SpelCompilerMode.IMMEDIATE, getClass().getClassLoader());
+    void compiled() throws Exception {
+        Assertions.assertTrue(compilationMode(SpelCompilerMode.OFF, "name"));
+        Assertions.assertFalse(compilationMode(SpelCompilerMode.IMMEDIATE, "nationality"));
+    }
+
+    private boolean compilationMode(SpelCompilerMode compilerMode, String property) throws Exception {
+        var config = new SpelParserConfiguration(compilerMode, getClass().getClassLoader());
         var parser = new SpelExpressionParser(config);
-        var expr = parser.parseExpression("name");
-        var runnable = (Runnable) () -> Assertions.assertNotNull(expr.getValue(this.TESLA));
+        var expr = parser.parseExpression(property);
+        var runnable = (Runnable) () -> Assertions.assertNotNull(expr.getValue(TESLA));
         var first = stopwatch(runnable);
         var maxRuns = 1000;
         var collection = new ArrayList<Long>();
@@ -199,8 +208,14 @@ class SpelApplicationTests {
                 .getAverage();
         var improvement = first / avg;
         Assertions.assertTrue(avg < first, "the subsequent runs should be much faster than the first run");
-        System.out.println(Map.of("first", first, "subsequent", avg, "compilerMode", SpelCompilerMode.IMMEDIATE.toString(),
-                "delta", improvement));
+        System.out.println(Map.of("first", first, "subsequent", avg, "compilerMode", compilerMode.toString(),
+                "improvement factor", improvement));
+
+        var field = SpelExpression.class.getDeclaredField("compiledAst");
+        ReflectionUtils.makeAccessible(field);
+        var compiledAst = field.get(expr);
+        return null == compiledAst;
+
     }
 
 
