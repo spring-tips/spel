@@ -2,21 +2,26 @@ package bootiful.spel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.expression.BeanFactoryResolver;
 import org.springframework.expression.spel.SpelCompilerMode;
 import org.springframework.expression.spel.SpelEvaluationException;
 import org.springframework.expression.spel.SpelParserConfiguration;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 class SpelApplicationTests {
 
-    private record Inventor(String name, Date birthday, String nationality, String[] inventionsArray) {
+    private static record Inventor(String name, Date birthday, String nationality, String[] inventionsArray) {
     }
 
-    private final Inventor tesla = new Inventor("Nikola Tesla",
+    private final static Inventor TESLA = new Inventor("Nikola Tesla",
             new GregorianCalendar(1856, 7, 9).getTime(), "Serbian",
             new String[]{"induction motor", "commutator for dynamo"});
 
@@ -35,7 +40,7 @@ class SpelApplicationTests {
 
         // access
         var expression = expressionParser.parseExpression("inventionsArray[0].toUpperCase()");
-        var result = expression.getValue(this.tesla, String.class);
+        var result = expression.getValue(this.TESLA, String.class);
         Assertions.assertEquals(result, "induction motor".toUpperCase());
 
         // array literals
@@ -134,10 +139,10 @@ class SpelApplicationTests {
     void rootObjects() throws Exception {
         var parser = new SpelExpressionParser();
         var expression = parser.parseExpression("name");
-        var name = (String) expression.getValue(tesla);
+        var name = (String) expression.getValue(TESLA);
         Assertions.assertEquals(name, "Nikola Tesla");
         var nameIsNikola = parser.parseExpression("name == 'Nikola Tesla'")
-                .getValue(tesla, Boolean.class);
+                .getValue(TESLA, Boolean.class);
         Assertions.assertTrue(nameIsNikola, "the name is Nikola Tesla");
     }
 
@@ -147,7 +152,7 @@ class SpelApplicationTests {
 
         var context = SimpleEvaluationContext
                 .forReadOnlyDataBinding()
-                .withRootObject(tesla);
+                .withRootObject(TESLA);
 
         var parser = new SpelExpressionParser();
 
@@ -177,16 +182,11 @@ class SpelApplicationTests {
     }
 
     @Test
-    void compilationImmediate() throws Exception {
-        doWithCompilationMode(SpelCompilerMode.IMMEDIATE, "name");
-    }
-
-
-    private void doWithCompilationMode(SpelCompilerMode spelCompilerMode, String property) {
-        var config = new SpelParserConfiguration(spelCompilerMode, getClass().getClassLoader());
+    void compilationMode() {
+        var config = new SpelParserConfiguration(SpelCompilerMode.IMMEDIATE, getClass().getClassLoader());
         var parser = new SpelExpressionParser(config);
-        var expr = parser.parseExpression(property);
-        var runnable = (Runnable) () -> Assertions.assertNotNull(expr.getValue(this.tesla));
+        var expr = parser.parseExpression("name");
+        var runnable = (Runnable) () -> Assertions.assertNotNull(expr.getValue(this.TESLA));
         var first = stopwatch(runnable);
         var maxRuns = 1000;
         var collection = new ArrayList<Long>();
@@ -197,8 +197,65 @@ class SpelApplicationTests {
                 .summaryStatistics()
                 .getAverage();
         var improvement = first / avg;
-        System.out.println(Map.of("first", first, "subsequent", avg, "compilerMode", spelCompilerMode.toString(),
+        Assertions.assertTrue(avg < first, "the subsequent runs should be much faster than the first run");
+        System.out.println(Map.of("first", first, "subsequent", avg, "compilerMode", SpelCompilerMode.IMMEDIATE.toString(),
                 "delta", improvement));
+    }
+
+
+    @Service
+    static class InventorRegistry {
+
+        public Collection<Inventor> getInventors() {
+            return Set.of(TESLA);
+        }
+    }
+
+    @Configuration
+    static class SimpleConfig {
+
+        @Bean
+        InventorRegistry registry() {
+            return new InventorRegistry();
+        }
+    }
+
+    @Test
+    void navigations() throws Exception {
+        var expressionParser = new SpelExpressionParser();
+        var inventor = new Inventor(null, null, null, null);
+        var name = expressionParser
+                .parseExpression("name ?: 'Bob' ")
+                .getValue(inventor, String.class);
+        Assertions.assertEquals(name, "Bob");
+        var valueOrNull = expressionParser
+                .parseExpression("inventionsArray?.length")
+                .getValue(inventor, Integer.class);
+        Assertions.assertNull(valueOrNull);
+    }
+
+    @Test
+    void selection() throws Exception {
+        record Cat (String type) {}
+        var expressionParser = new SpelExpressionParser();
+        var values = List .of( new Cat ("Leopard") , new Cat ("Tiger") , new Cat ("Lion"),
+                new Cat("Tiger"));
+        var fewerValues = expressionParser.parseExpression("#root.?[ type == 'Tiger' ] ")
+                .getValue( values , List.class  ) ;
+        Assertions.assertEquals(fewerValues.size(), 2);
+        System.out.println(fewerValues);
+    }
+
+    @Test
+    void beans() throws Exception {
+        var applicationContext = new AnnotationConfigApplicationContext(SimpleConfig.class);
+        var expressionParser = new SpelExpressionParser();
+        var sec = new StandardEvaluationContext();
+        sec.setBeanResolver(new BeanFactoryResolver(applicationContext));
+//        sec.setBeanResolver((context, beanName) -> applicationContext.getBean(beanName));
+        var collectionOfInventors = expressionParser.parseExpression("@registry.inventors")
+                .getValue(sec, Collection.class);
+        System.out.println(collectionOfInventors);
     }
 
 
