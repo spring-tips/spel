@@ -20,4 +20,4 @@
 * `NavigationsTest` - the language makes it easy and safe to navigate property stacks
 * `SpringTest` - see how the SpEL works with and within a Spring application.
 * `CompilationTest` - did you know you can _compile_ the Spring Expression Language statement?? Spring Integration knows this. And they use it well. 
-* `SpelApplication` - 
+* `SpelApplication` - this example was inspired by this amazing commit from Marcus da Coregio who shows how to, given a SpEL expression - in this case extracted from annotations that Spring cares about - register the corresponding bean for reflection using the Spring AOT component model.
