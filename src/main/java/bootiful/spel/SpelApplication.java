@@ -30,7 +30,7 @@ public class SpelApplication {
 		SpringApplication.run(SpelApplication.class, args);
 	}
 
-	@Bean
+	 @Bean
 	static SpelHints spelHints() {
 		return new SpelHints();
 	}
