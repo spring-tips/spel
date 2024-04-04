@@ -87,7 +87,6 @@ public class SpelApplication {
 	@Bean
 	ApplicationRunner illPutASpelOnYou(BeanFactory beanFactory) throws Exception {
 		return args -> {
-
 			var spel = new SpelExpressionParser();
 			var sec = new StandardEvaluationContext();
 			sec.setBeanResolver(new BeanFactoryResolver(beanFactory));
