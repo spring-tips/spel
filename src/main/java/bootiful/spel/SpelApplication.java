@@ -30,15 +30,12 @@ public class SpelApplication {
 		SpringApplication.run(SpelApplication.class, args);
 	}
 
-	 @Bean
+	@Bean
 	static SpelHints spelHints() {
 		return new SpelHints();
 	}
 
-	private static final String SPEL =
-			""" 
-					@customerService.uid()		
-					""";
+	private static final String SPEL = " @customerService.uid()  ";
 
 	static class SpelHints implements BeanFactoryInitializationAotProcessor {
 
